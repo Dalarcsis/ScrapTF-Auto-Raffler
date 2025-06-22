@@ -65,7 +65,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (githubBtn) {
     githubBtn.addEventListener('click', () => {
-      window.open('https://github.com/', '_blank');
+      window.open('https://github.com/Dalarcsis/ScrapTF-Auto-Raffler', '_blank');
     });
   }
 });
