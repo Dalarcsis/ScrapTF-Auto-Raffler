@@ -23,10 +23,6 @@ function runAutoRaffler(winsStorage) {
         return Array.from(captcha.children).some(el => el.offsetParent !== null);
     }
 
-    function notifyWin(title, item) {
-        chrome.runtime.sendMessage({ type: 'win', title, item });
-    }
-
     async function autoScrollAndCollectRaffles() {
         console.log("[AutoRaffler] 🔍 Поиск раздач...");
 
@@ -69,18 +65,6 @@ function runAutoRaffler(winsStorage) {
         let queue = JSON.parse(localStorage.getItem("raffleQueue") || "[]");
         let index = parseInt(localStorage.getItem("raffleIndex") || "0");
         console.log(`[AutoRaffler] 🎫 Обработка раздачи ${index + 1} из ${queue.length}`);
-
-        const withdrawButton = document.querySelector("button.btn.btn-embossed.btn-info[onclick*='WithdrawRaffle']");
-        if (withdrawButton) {
-            const raffleTitle = document.querySelector(".panel-title")?.textContent?.trim() || "(Без названия)";
-            const prize = document.querySelector(".raffle-item-entry .item-name")?.textContent?.trim() || "(Без названия)";
-            chrome.storage.local.get({ wins: [] }, data => {
-                const updated = [...data.wins, `${new Date().toLocaleDateString('ru-RU')} Вы победили в розыгрыше "${raffleTitle}": "${prize}"`];
-                chrome.storage.local.set({ wins: updated });
-                notifyWin(raffleTitle, prize);
-            });
-            return;
-        }
 
         const leaveBtn = document.querySelector("#raffle-leave");
         if (leaveBtn) {
@@ -178,39 +162,60 @@ function runAutoRaffler(winsStorage) {
 // 👑 Победа на странице профиля (https://scrap.tf/profile)
 (function () {
     const panel = document.querySelector('div.panel.panel-info .panel-heading');
-    if (!panel || !panel.textContent.includes('Raffles you won')) return;
 
-    const raffleBlock = document.querySelector('.panel.panel-info .panel-raffle');
-    if (!raffleBlock) return;
+    // Если блока вообще нет — очищаем журнал
+    if (!panel || !panel.textContent.includes('Raffles you won')) {
+        chrome.storage.local.set({ wins: [] }, () => {
+            console.log("[AutoRaffler] 🧹 Все победы получены — журнал очищен.");
+        });
+        return;
+    }
 
-    const titleEl = raffleBlock.querySelector('.raffle-name a');
-    const dateEl = raffleBlock.querySelector('.raffle-start-time');
-    const itemEl = raffleBlock.querySelector('.panel-raffle-items .item');
+    const raffleBlocks = document.querySelectorAll('.panel.panel-info .panel-raffle');
+    if (!raffleBlocks.length) {
+        chrome.storage.local.set({ wins: [] }, () => {
+            console.log("[AutoRaffler] 🧹 Нет активных побед — журнал очищен.");
+        });
+        return;
+    }
 
-    if (!titleEl || !dateEl || !itemEl) return;
+    const currentEntries = [];
+    const notifications = [];
 
-    const title = titleEl.textContent.trim();
-    const dateText = dateEl.textContent.trim();
-    const itemName = itemEl.getAttribute('data-title');
+    raffleBlocks.forEach(raffleBlock => {
+        const titleEl = raffleBlock.querySelector('.raffle-name a');
+        const dateEl = raffleBlock.querySelector('.raffle-start-time');
+        const itemEl = raffleBlock.querySelector('.panel-raffle-items .item');
 
-    const parsedDate = new Date(dateText);
-    const dateFormatted = parsedDate.toLocaleDateString('ru-RU');
+        if (!titleEl || !dateEl || !itemEl) return;
 
-    const entry = `${dateFormatted} Вы победили в розыгрыше "${title}": "${itemName}"`;
+        const title = titleEl.textContent.trim();
+        const dateText = dateEl.textContent.trim();
+        const itemName = itemEl.getAttribute('data-title');
+
+        const parsedDate = new Date(dateText);
+        const dateFormatted = parsedDate.toLocaleDateString('ru-RU');
+        const entry = `${dateFormatted} Вы победили в розыгрыше "${title}": "${itemName}"`;
+
+        currentEntries.push(entry);
+        notifications.push({ title, itemName, entry });
+    });
 
     chrome.storage.local.get({ wins: [] }, data => {
-        const log = data.wins;
-        if (!log.includes(entry)) {
-            log.push(entry);
-            chrome.storage.local.set({ wins: log });
+        const updatedWins = [];
 
-            chrome.runtime.sendMessage({
-                type: "notify",
-                title: "🎉 Победа!",
-                message: `Вы выиграли в розыгрыше "${title}": "${itemName}"`
-            });
+        notifications.forEach(({ title, itemName, entry }) => {
+            if (!data.wins.includes(entry)) {
+                chrome.runtime.sendMessage({
+                    type: "notify",
+                    title: "🎉 Победа!",
+                    message: `Вы выиграли в розыгрыше "${title}": "${itemName}"`
+                });
+                console.log("🏆 Победа записана в журнал:", entry);
+            }
+        });
 
-            console.log("🏆 Победа записана в журнал:", entry);
-        }
+        updatedWins.push(...currentEntries);
+        chrome.storage.local.set({ wins: updatedWins });
     });
 })();
