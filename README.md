@@ -1,3 +1,7 @@
+<div align="center">
+<img src="RU scraptf-auto-raffler-v2.6.6/icons/icon128.png"/>
+</div>
+
 # 📝 Описание / Description
 RU: ScrapTF-Auto-Raffler - бесплатное расширение для Google Chrome, автоматически вступающее во все раздачи на [Scrap.tf](https://scrap.tf).</br>
 EN: ScrapTF-Auto-Raffler - a free extension for Google Chrome that automatically joins all distributions on [Scrap.tf](https://scrap.tf).
