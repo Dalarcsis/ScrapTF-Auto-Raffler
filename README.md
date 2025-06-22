@@ -8,6 +8,7 @@ RU:
 - Работает полностью в автономном режиме
 - Не вызывает подозрения на ботоводство
 - Удобный и компактный в виде расширения
+</br> </br>
 EN:
 - Participates in all distributions
 - Works completely autonomously
