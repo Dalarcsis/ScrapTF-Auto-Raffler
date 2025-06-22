@@ -46,3 +46,13 @@ EN:
 1. When you go to the main page of the [Scrap.tf](https://scrap.tf/raffles) giveaways, the extension starts collecting links to all unentered giveaways.
 2. After collecting the links, the extension automatically goes to each giveaway and presses the "Enter Raffle" button.
 3. When the last giveaway is processed, the extension goes back to the main page. If there are no new giveaways on the main page, then the page will be scheduled to refresh in 5 minutes. After this time, the extension will start working again.
+
+# 🚩 Важные моменты / Important points
+RU:
+- В случае выигрыша, расширение отправляет уведомление на ваш ПК о победе. Иногда эта функция может быть выключена. Чтобы проверить работоспособность уведомлений, зайдите в "Параметры", "Система", "Уведомления и действия". Промотайте вниз и найдите блок "Получать уведомления от этих приложений". Убедитесь, что для Google Chrome стоит значение "Вкл."
+- Иногда расширение может "зависнуть", встретившись с капчей. Это нормальное явление, и оно могло бы возникнуть даже в том случае, если бы вы вручную вступали в сразу множество раздач. Для того, чтобы решить проблему зависания, выключите расширение и пройдите капчу (1-2 раза) самостоятельно. После этого расширение можно снова включить.
+</br>
+
+EN:
+- In case of winning, the extension sends a notification to your PC about the victory. Sometimes this function can be disabled. To check if notifications are working, go to "Settings", "System", "Notifications and actions". Scroll down and find the "Get notifications from these apps" block. Make sure that Google Chrome is set to "On".
+- Sometimes the extension can "freeze" when encountering a captcha. This is normal, and it could happen even if you manually entered into many hands at once. To solve the freezing problem, turn off the extension and pass the captcha (1-2 times) yourself. After that, the extension can be turned on again.
