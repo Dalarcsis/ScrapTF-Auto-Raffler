@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ScrapTF Auto Raffler",
-  "version": "2.6.7",
+  "version": "2.6.8",
   "description": "ScrapTF Auto Raffler - розыгрыши на Scrap.tf с комфортом ❤️",
   "permissions": [
     "storage",
