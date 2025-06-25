@@ -22,11 +22,18 @@ EN:
 
 # 📦 Установка / Installation
 RU:
-- Скачать последнюю версию [ScrapTF Auto Raffler RU](https://github.com/user-attachments/files/20854825/scraptf-auto-raffler-v2.6.7.RU.zip).
+- Скачать последнюю версию [ScrapTF Auto Raffler RU](https://github.com/user-attachments/files/20907579/scraptf-auto-raffler-v2.6.8.RU.zip).
 - Распаковать архив.
 - Зайти в Google Chrome, "Расширения", "Управление расширениями". В правом верхнем углу нажать кнопку "Режим разработчика". Слева сверху нажать "Загрузить распакованное расширение" и указать путь к папке с расширением.
 - После установки расширения, нажать на иконку расширения. Чтобы включить его, нажмите кнопку ВКЛ.
 ВНИМАНИЕ: удалять папку с расширением нельзя! Google Chrome не копирует ее в свою директорию, из-за чего в случае удаления выдаст ошибку об отсутствии нужных файлов для запуска. Совет - преместите ее в удобное для вас место.
+
+EN:
+- Download the latest version [ScrapTF Auto Raffler EN](https://github.com/user-attachments/files/20907579/scraptf-auto-raffler-v2.6.8.RU.zip).
+- Unzip the archive.
+- Go to Google Chrome, "Extensions", "Manage extensions". In the upper right corner, click the "Developer mode" button. In the upper left, click "Load unpacked extension" and specify the path to the folder with the extension.
+- After installing the extension, click on the extension icon. To enable it, click the ON button.
+ATTENTION: you cannot delete the folder with the extension! Google Chrome does not copy it to its directory, which is why if you delete it, it will give an error about the lack of necessary files to run. Advice - move it to a convenient place for you.
 
 # 🛡️ Почему это безопастно? / Why is it safe?
 RU:
@@ -55,11 +62,11 @@ EN:
 # 🚩 Важные моменты / Important points
 RU:
 - В случае выигрыша, расширение отправляет уведомление на ваш ПК о победе. Иногда эта функция может быть выключена. Чтобы проверить работоспособность уведомлений, зайдите в "Параметры", "Система", "Уведомления и действия". Промотайте вниз и найдите блок "Получать уведомления от этих приложений". Убедитесь, что для Google Chrome стоит значение "Вкл."
-- Иногда расширение может "зависнуть", встретившись с капчей. Это нормальное явление, и оно могло бы возникнуть даже в том случае, если бы вы вручную вступали в сразу множество раздач. Для того, чтобы решить проблему зависания, выключите расширение и пройдите капчу (1-2 раза) самостоятельно. После этого расширение можно снова включить.
+- Иногда расширение может "зависнуть", встретившись с капчей, и вам придет уведомление об этом. Это нормальное явление, и оно могло бы возникнуть даже в том случае, если бы вы вручную вступали в сразу множество раздач. Для того, чтобы решить проблему зависания, самостоятельно пройдите капчу 1-2 раза. После этого расширение продолжит свою работу.
 - Чтобы расширение работало без остановки, вы можете закрепить вкладку [Scrap.tf](https://scrap.tf/raffles) и оставить браузер открытым, занимаясь своими делами.
 </br>
 
 EN:
 - In case of winning, the extension sends a notification to your PC about the victory. Sometimes this function can be disabled. To check if notifications are working, go to "Settings", "System", "Notifications and actions". Scroll down and find the "Get notifications from these apps" block. Make sure that Google Chrome is set to "On".
-- Sometimes the extension may "freeze" when encountering a captcha. This is normal and could happen even if you manually entered many sweepstakes at once. To solve the freezing problem, turn off the extension and solve the captcha (1-2 times) yourself. After that, you can turn the extension back on.
+- Sometimes the extension may "freeze" when encountering a captcha, and you will receive a notification about it. This is normal, and it could occur even if you manually entered into multiple distributions at once. In order to solve the freezing problem, pass the captcha yourself 1-2 times. After that, the extension will continue to work.
 - To keep the extension running without interruption, you can pin the [Scrap.tf](https://scrap.tf/raffles) tab and leave the browser open while you do your thing.
