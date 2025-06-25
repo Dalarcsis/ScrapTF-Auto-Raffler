@@ -29,7 +29,7 @@ RU:
 ВНИМАНИЕ: удалять папку с расширением нельзя! Google Chrome не копирует ее в свою директорию, из-за чего в случае удаления выдаст ошибку об отсутствии нужных файлов для запуска. Совет - преместите ее в удобное для вас место.
 
 EN:
-- Download the latest version [ScrapTF Auto Raffler EN](https://github.com/user-attachments/files/20907579/scraptf-auto-raffler-v2.6.8.RU.zip).
+- Download the latest version [ScrapTF Auto Raffler EN](https://github.com/user-attachments/files/20907893/scraptf-auto-raffler-v2.6.8.EN.zip).
 - Unzip the archive.
 - Go to Google Chrome, "Extensions", "Manage extensions". In the upper right corner, click the "Developer mode" button. In the upper left, click "Load unpacked extension" and specify the path to the folder with the extension.
 - After installing the extension, click on the extension icon. To enable it, click the ON button.
