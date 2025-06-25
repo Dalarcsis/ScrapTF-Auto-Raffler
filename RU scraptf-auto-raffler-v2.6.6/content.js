@@ -1,16 +1,13 @@
-chrome.storage?.local?.get(["enabled", "wins"], (data) => {
+chrome.storage?.local?.get(["enabled", "wins", "winsHistory"], (data) => {
     const enabled = data.enabled ?? false;
-    const wins = data.wins ?? [];
-
     if (!enabled) {
         console.log('[AutoRaffler] ❌ Скрипт выключен — завершение.');
         return;
     }
-
-    runAutoRaffler(wins);
+    runAutoRaffler();
 });
 
-function runAutoRaffler(winsStorage) {
+function runAutoRaffler() {
     const SCROLL_COUNT = 2;
     const SCROLL_DELAY_MS = 1500;
     const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000;
@@ -19,8 +16,15 @@ function runAutoRaffler(winsStorage) {
 
     function isCaptchaVisible() {
         const captcha = document.querySelector("#raffle-captcha-holder, #turnstile-container");
-        if (!captcha) return false;
-        return Array.from(captcha.children).some(el => el.offsetParent !== null);
+        return captcha && Array.from(captcha.children).some(el => el.offsetParent !== null);
+    }
+
+    function isPasswordRaffle() {
+        return document.querySelector("#raffle-password") !== null;
+    }
+
+    function isPuzzleRaffle() {
+        return window.location.pathname === "/raffles/puzzle";
     }
 
     async function autoScrollAndCollectRaffles() {
@@ -49,8 +53,7 @@ function runAutoRaffler(winsStorage) {
             .filter(Boolean);
 
         if (raffles.length === 0) {
-            console.log("[AutoRaffler] ❌ Раздачи не найдены.");
-            console.log("[AutoRaffler] ⏳ Перезагрузка через 5 минут...");
+            console.log("[AutoRaffler] ❌ Раздачи не найдены. ⏳ Перезагрузка через 5 минут...");
             setTimeout(() => window.location.reload(), AUTO_REFRESH_INTERVAL);
             return;
         }
@@ -68,62 +71,94 @@ function runAutoRaffler(winsStorage) {
 
         const leaveBtn = document.querySelector("#raffle-leave");
         if (leaveBtn) {
-            console.log("[AutoRaffler] 🚪 Уже участвуешь (Leave Raffle найден) — переход к следующей.");
+            console.log("[AutoRaffler] 🚪 Уже участвуешь — переход к следующей.");
             goToNextRaffle();
             return;
         }
 
         function checkAndClick() {
-            if (isCaptchaVisible()) return setTimeout(checkAndClick, 2000);
+            let waited = 0;
+            let alreadyWaiting = false;
+            let captchaWaiting = false;
 
-            const confirmation = document.querySelector(".raffle-entered-msg");
-            const leaveNow = document.querySelector("#raffle-leave");
-            if ((confirmation && confirmation.style.display !== "none") || leaveNow) return goToNextRaffle();
+            const interval = setInterval(() => {
+                if (isCaptchaVisible()) {
+                    if (!captchaWaiting) {
+                        captchaWaiting = true;
+                        console.log("[AutoRaffler] 🧩 Капча обнаружена после нажатия — ожидание решения...");
+                        chrome.runtime.sendMessage({
+                            type: "notify",
+                            title: "🤖 Требуется внимание",
+                            message: "Появилась капча. Пожалуйста, решите ее вручную."
+                        });
+                    }
+                    return;
+                }
+
+                if (captchaWaiting) {
+                    console.log("[AutoRaffler] ✅ Капча решена. Продолжение...");
+                    clearInterval(interval);
+                    goToNextRaffle();
+                    return;
+                }
+
+                const confirm = document.querySelector(".raffle-entered-msg");
+                const leaveAfterClick = document.querySelector("#raffle-leave");
+
+                if ((confirm && confirm.style.display !== "none") || leaveAfterClick) {
+                    clearInterval(interval);
+                    console.log("[AutoRaffler] ✅ Вступление подтверждено.");
+                    goToNextRaffle();
+                    return;
+                }
+
+                const entering = Array.from(document.querySelectorAll("button.btn-info.btn-lg[disabled]"))
+                    .find(b => b.textContent.includes("Entering"));
+                if (entering) {
+                    if (!alreadyWaiting) {
+                        console.log("[AutoRaffler] ⏳ Ожидание завершения 'Entering...'");
+                        alreadyWaiting = true;
+                    }
+                    waited = 0;
+                    return;
+                }
+
+                waited += ENTERING_CHECK_INTERVAL_MS;
+                if (waited >= WAIT_AFTER_CLICK_MS) {
+                    clearInterval(interval);
+                    console.log("[AutoRaffler] ⏱ Время ожидания истекло.");
+                    goToNextRaffle();
+                }
+            }, ENTERING_CHECK_INTERVAL_MS);
 
             const buttons = document.querySelectorAll("button.btn.btn-embossed.btn-info.btn-lg");
             for (const btn of buttons) {
                 if (btn.offsetParent === null) continue;
-                const text = btn.textContent.trim();
-                if (text.includes("Enter Raffle")) {
-                    console.log("[AutoRaffler] 🔘 Кликаю Enter Raffle...");
+                if (btn.textContent.trim().includes("Enter Raffle")) {
+                    console.log("[AutoRaffler] 🔘 Нажимаю Enter Raffle...");
                     btn.click();
-
-                    let waited = 0;
-                    let alreadyWaitingEntering = false;
-                    const interval = setInterval(() => {
-                        waited += ENTERING_CHECK_INTERVAL_MS;
-                        const confirm = document.querySelector(".raffle-entered-msg");
-                        const leaveAfterClick = document.querySelector("#raffle-leave");
-
-                        if ((confirm && confirm.style.display !== "none") || leaveAfterClick) {
-                            clearInterval(interval);
-                            console.log("[AutoRaffler] ✅ Подтверждение или Leave Raffle — идём дальше.");
-                            goToNextRaffle();
-                            return;
+                    setTimeout(() => {
+                        if (isCaptchaVisible()) {
+                            captchaWaiting = true;
+                            console.log("[AutoRaffler] 🧩 Капча появилась после клика — в режим ожидания.");
+                            chrome.runtime.sendMessage({
+                                type: "notify",
+                                title: "🤖 Требуется внимание!",
+                                message: "Появилась капча. Пожалуйста, решите ее вручную."
+                            });
                         }
-
-                        const enteringButton = Array.from(document.querySelectorAll("button.btn-info.btn-lg[disabled]"))
-                            .find(btn => btn.textContent.includes("Entering"));
-                        if (enteringButton) {
-                            if (!alreadyWaitingEntering) {
-                                console.log("[AutoRaffler] ⏳ Всё ещё происходит вступление (Entering...) — продолжаем ждать...");
-                                alreadyWaitingEntering = true;
-                            }
-                            waited = 0;
-                            return;
-                        }
-
-                        if (waited >= WAIT_AFTER_CLICK_MS) {
-                            clearInterval(interval);
-                            console.log("[AutoRaffler] ⏱ Время ожидания истекло — идём дальше.");
-                            goToNextRaffle();
-                        }
-                    }, ENTERING_CHECK_INTERVAL_MS);
+                    }, 1000);
                     return;
                 }
             }
 
-            console.log("[AutoRaffler] ❓ Кнопка не найдена — повторим позже.");
+            if (isPasswordRaffle() || isPuzzleRaffle()) {
+                console.log("[AutoRaffler] 🔒 Это раздачи с паролем или пазлом — остановка сканирования.");
+                clearInterval(interval);
+                return;
+            }
+
+            console.log("[AutoRaffler] ❓ Кнопка не найдена — повторная попытка.");
             setTimeout(checkAndClick, 3000);
         }
 
@@ -131,42 +166,40 @@ function runAutoRaffler(winsStorage) {
     }
 
     function goToNextRaffle() {
+        if (isPasswordRaffle() || isPuzzleRaffle()) {
+            console.log("[AutoRaffler] 🧠 Это раздачи с паролем или пазлом — переход отменён.");
+            return;
+        }
+
         const queue = JSON.parse(localStorage.getItem("raffleQueue") || "[]");
         let index = parseInt(localStorage.getItem("raffleIndex") || "0");
         index += 1;
         localStorage.setItem("raffleIndex", index.toString());
 
         if (index >= queue.length) {
-            const meta = document.createElement("meta");
-            meta.httpEquiv = "refresh";
-            meta.content = "2; url=https://scrap.tf/raffles";
-            document.head.appendChild(meta);
             setTimeout(() => {
                 window.location.replace("https://scrap.tf/raffles");
             }, 2000);
         } else {
-            const next = queue[index];
-            window.location.href = next;
+            window.location.href = queue[index];
         }
     }
 
     if (window.location.pathname === "/raffles") {
         autoScrollAndCollectRaffles();
     }
-
     if (window.location.pathname.startsWith("/raffles/")) {
         handleSingleRaffle();
     }
 }
 
-// 👑 Победа на странице профиля (https://scrap.tf/profile)
+// 👑 Уникальные уведомления о победах с сохранением истории
 (function () {
     const panel = document.querySelector('div.panel.panel-info .panel-heading');
 
-    // Если блока вообще нет — очищаем журнал
     if (!panel || !panel.textContent.includes('Raffles you won')) {
         chrome.storage.local.set({ wins: [] }, () => {
-            console.log("[AutoRaffler] 🧹 Все победы получены — журнал очищен.");
+            console.log("[AutoRaffler] 🧹 Побед нет — текущий журнал очищен.");
         });
         return;
     }
@@ -174,48 +207,46 @@ function runAutoRaffler(winsStorage) {
     const raffleBlocks = document.querySelectorAll('.panel.panel-info .panel-raffle');
     if (!raffleBlocks.length) {
         chrome.storage.local.set({ wins: [] }, () => {
-            console.log("[AutoRaffler] 🧹 Нет активных побед — журнал очищен.");
+            console.log("[AutoRaffler] 🧹 Блоков побед нет — текущий журнал очищен.");
         });
         return;
     }
 
-    const currentEntries = [];
-    const notifications = [];
+    const currentWins = [];
 
-    raffleBlocks.forEach(raffleBlock => {
-        const titleEl = raffleBlock.querySelector('.raffle-name a');
-        const dateEl = raffleBlock.querySelector('.raffle-start-time');
-        const itemEl = raffleBlock.querySelector('.panel-raffle-items .item');
-
+    raffleBlocks.forEach(block => {
+        const titleEl = block.querySelector('.raffle-name a');
+        const dateEl = block.querySelector('.raffle-start-time');
+        const itemEl = block.querySelector('.panel-raffle-items .item');
         if (!titleEl || !dateEl || !itemEl) return;
 
         const title = titleEl.textContent.trim();
-        const dateText = dateEl.textContent.trim();
-        const itemName = itemEl.getAttribute('data-title');
+        const date = new Date(dateEl.textContent.trim()).toLocaleDateString('ru-RU');
+        const item = itemEl.getAttribute('data-title');
+        const entry = `${date} Вы победили в розыгрыше "${title}": "${item}"`;
 
-        const parsedDate = new Date(dateText);
-        const dateFormatted = parsedDate.toLocaleDateString('ru-RU');
-        const entry = `${dateFormatted} Вы победили в розыгрыше "${title}": "${itemName}"`;
-
-        currentEntries.push(entry);
-        notifications.push({ title, itemName, entry });
+        currentWins.push(entry);
     });
 
-    chrome.storage.local.get({ wins: [] }, data => {
-        const updatedWins = [];
+    chrome.storage.local.get({ wins: [], winsHistory: [] }, data => {
+        const oldHistory = data.winsHistory || [];
+        const updatedHistory = [...oldHistory];
 
-        notifications.forEach(({ title, itemName, entry }) => {
-            if (!data.wins.includes(entry)) {
+        currentWins.forEach(entry => {
+            if (!oldHistory.includes(entry)) {
                 chrome.runtime.sendMessage({
                     type: "notify",
                     title: "🎉 Победа!",
-                    message: `Вы выиграли в розыгрыше "${title}": "${itemName}"`
+                    message: entry
                 });
-                console.log("🏆 Победа записана в журнал:", entry);
+                console.log("🏆 Новая победа:", entry);
+                updatedHistory.push(entry);
             }
         });
 
-        updatedWins.push(...currentEntries);
-        chrome.storage.local.set({ wins: updatedWins });
+        chrome.storage.local.set({
+            wins: currentWins,
+            winsHistory: updatedHistory
+        });
     });
 })();
