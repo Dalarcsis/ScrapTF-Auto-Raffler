@@ -35,7 +35,7 @@ EN:
 - After installing the extension, click on the extension icon. To enable it, click the ON button.</br>
 ATTENTION: you cannot delete the folder with the extension! Google Chrome does not copy it to its directory, which is why if you delete it, it will give an error about the lack of necessary files to run. Advice - move it to a convenient place for you.
 
-# 🛡️ Почему это безопастно? / Why is it safe?
+# 🛡️ Почему это безопасно? / Why is it safe?
 RU:
 1. Не требует ваши личные данные аккаунта [Steam](https://store.steampowered.com/).
 2. Не использует ваш логин и пароль на [Scrap.tf](https://scrap.tf).
