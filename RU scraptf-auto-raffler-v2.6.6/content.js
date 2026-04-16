@@ -11,7 +11,7 @@ function runAutoRaffler() {
     const SCROLL_COUNT = 2;
     const SCROLL_DELAY_MS = 1500;
     const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000;
-    const WAIT_AFTER_CLICK_MS = 2500;
+    const WAIT_AFTER_CLICK_MS = 10;
     const ENTERING_CHECK_INTERVAL_MS = 250;
 
     function isCaptchaVisible() {
@@ -64,106 +64,130 @@ function runAutoRaffler() {
         window.location.href = raffles[0];
     }
 
-    function handleSingleRaffle() {
-        let queue = JSON.parse(localStorage.getItem("raffleQueue") || "[]");
-        let index = parseInt(localStorage.getItem("raffleIndex") || "0");
-        console.log(`[AutoRaffler] 🎫 Обработка раздачи ${index + 1} из ${queue.length}`);
+function handleSingleRaffle() {
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY_MS = 3000;
+    const WAIT_AFTER_CLICK_MS = 100;
+    const CHECK_INTERVAL_MS = 300;
 
-        const leaveBtn = document.querySelector("#raffle-leave");
-        if (leaveBtn) {
-            console.log("[AutoRaffler] 🚪 Уже участвуешь — переход к следующей.");
+    let queue = JSON.parse(localStorage.getItem("raffleQueue") || "[]");
+    let index = parseInt(localStorage.getItem("raffleIndex") || "0");
+
+    console.log(`[AutoRaffler] 🎫 Обработка раздачи ${index + 1} из ${queue.length}`);
+
+    if (isPasswordRaffle() || isPuzzleRaffle()) {
+        console.log("[AutoRaffler] 🔒 Раздача с паролем/пазлом — пропуск.");
+        goToNextRaffle();
+        return;
+    }
+
+    const leaveBtn = document.querySelector("#raffle-leave");
+    if (leaveBtn) {
+        console.log("[AutoRaffler] 🚪 Уже участвуешь — дальше.");
+        goToNextRaffle();
+        return;
+    }
+
+    function isCaptchaError() {
+        const alerts = document.querySelectorAll(".alert");
+        return Array.from(alerts).some(el =>
+            el.textContent.includes("Captcha did not complete")
+        );
+    }
+
+    function clickEnterButton() {
+        const buttons = document.querySelectorAll("button.btn.btn-embossed.btn-info.btn-lg");
+        for (const btn of buttons) {
+            if (btn.offsetParent === null) continue;
+            if (btn.textContent.trim().includes("Enter Raffle")) {
+                console.log("[AutoRaffler] 🔘 Нажимаю Enter Raffle...");
+                btn.click();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function attemptJoin(retryCount = 0) {
+        if (retryCount > MAX_RETRIES) {
+            console.log("[AutoRaffler] ❌ Превышен лимит попыток — дальше.");
             goToNextRaffle();
             return;
         }
 
-        function checkAndClick() {
-            let waited = 0;
-            let alreadyWaiting = false;
-            let captchaWaiting = false;
+        if (!clickEnterButton()) {
+            console.log("[AutoRaffler] ❓ Кнопка не найдена — повтор...");
+            setTimeout(() => attemptJoin(retryCount + 1), RETRY_DELAY_MS);
+            return;
+        }
 
-            const interval = setInterval(() => {
-                if (isCaptchaVisible()) {
-                    if (!captchaWaiting) {
-                        captchaWaiting = true;
-                        console.log("[AutoRaffler] 🧩 Капча обнаружена после нажатия — ожидание решения...");
-                        chrome.runtime.sendMessage({
-                            type: "notify",
-                            title: "🤖 Требуется внимание",
-                            message: "Появилась капча. Пожалуйста, решите ее вручную."
-                        });
-                    }
-                    return;
-                }
+        let waited = 0;
+        let captchaDetected = false;
 
-                if (captchaWaiting) {
-                    console.log("[AutoRaffler] ✅ Капча решена. Продолжение...");
-                    clearInterval(interval);
-                    goToNextRaffle();
-                    return;
-                }
-
-                const confirm = document.querySelector(".raffle-entered-msg");
-                const leaveAfterClick = document.querySelector("#raffle-leave");
-
-                if ((confirm && confirm.style.display !== "none") || leaveAfterClick) {
-                    clearInterval(interval);
-                    console.log("[AutoRaffler] ✅ Вступление подтверждено.");
-                    goToNextRaffle();
-                    return;
-                }
-
-                const entering = Array.from(document.querySelectorAll("button.btn-info.btn-lg[disabled]"))
-                    .find(b => b.textContent.includes("Entering"));
-                if (entering) {
-                    if (!alreadyWaiting) {
-                        console.log("[AutoRaffler] ⏳ Ожидание завершения 'Entering...'");
-                        alreadyWaiting = true;
-                    }
-                    waited = 0;
-                    return;
-                }
-
-                waited += ENTERING_CHECK_INTERVAL_MS;
-                if (waited >= WAIT_AFTER_CLICK_MS) {
-                    clearInterval(interval);
-                    console.log("[AutoRaffler] ⏱ Время ожидания истекло.");
-                    goToNextRaffle();
-                }
-            }, ENTERING_CHECK_INTERVAL_MS);
-
-            const buttons = document.querySelectorAll("button.btn.btn-embossed.btn-info.btn-lg");
-            for (const btn of buttons) {
-                if (btn.offsetParent === null) continue;
-                if (btn.textContent.trim().includes("Enter Raffle")) {
-                    console.log("[AutoRaffler] 🔘 Нажимаю Enter Raffle...");
-                    btn.click();
-                    setTimeout(() => {
-                        if (isCaptchaVisible()) {
-                            captchaWaiting = true;
-                            console.log("[AutoRaffler] 🧩 Капча появилась после клика — в режим ожидания.");
-                            chrome.runtime.sendMessage({
-                                type: "notify",
-                                title: "🤖 Требуется внимание!",
-                                message: "Появилась капча. Пожалуйста, решите ее вручную."
-                            });
-                        }
-                    }, 1000);
-                    return;
-                }
-            }
-
-            if (isPasswordRaffle() || isPuzzleRaffle()) {
-                console.log("[AutoRaffler] 🔒 Это раздачи с паролем или пазлом — остановка сканирования.");
+        const interval = setInterval(() => {
+            // ❌ Ошибка капчи (самое важное)
+            if (isCaptchaError()) {
+                console.log("[AutoRaffler] ❌ Ошибка капчи — повтор попытки...");
                 clearInterval(interval);
+                setTimeout(() => attemptJoin(retryCount + 1), RETRY_DELAY_MS);
                 return;
             }
 
-            console.log("[AutoRaffler] ❓ Кнопка не найдена — повторная попытка.");
-            setTimeout(checkAndClick, 3000);
-        }
+            // 🧩 Капча появилась
+            if (isCaptchaVisible()) {
+                if (!captchaDetected) {
+                    captchaDetected = true;
+                    console.log("[AutoRaffler] 🧩 Капча обнаружена — жду решения...");
+                    chrome.runtime.sendMessage({
+                        type: "notify",
+                        title: "🤖 Требуется внимание",
+                        message: "Появилась капча. Решите её вручную."
+                    });
+                }
+                return;
+            }
 
-        checkAndClick();
+            // ✅ Капча была и исчезла
+            if (captchaDetected && !isCaptchaVisible()) {
+                console.log("[AutoRaffler] ✅ Капча решена.");
+                clearInterval(interval);
+                goToNextRaffle();
+                return;
+            }
+
+            // ✅ Успешное вступление
+            const confirm = document.querySelector(".raffle-entered-msg");
+            const leaveAfter = document.querySelector("#raffle-leave");
+
+            if ((confirm && confirm.style.display !== "none") || leaveAfter) {
+                console.log("[AutoRaffler] ✅ Участие подтверждено.");
+                clearInterval(interval);
+                goToNextRaffle();
+                return;
+            }
+
+            // ⏳ Кнопка "Entering..."
+            const entering = Array.from(document.querySelectorAll("button[disabled]"))
+                .find(b => b.textContent.includes("Entering"));
+
+            if (entering) {
+                waited = 0;
+                return;
+            }
+
+            // ⏱ Таймаут
+            waited += CHECK_INTERVAL_MS;
+            if (waited >= WAIT_AFTER_CLICK_MS) {
+                console.log("[AutoRaffler] ⏱ Таймаут — пробую снова...");
+                clearInterval(interval);
+                setTimeout(() => attemptJoin(retryCount + 1), RETRY_DELAY_MS);
+            }
+
+        }, CHECK_INTERVAL_MS);
     }
+
+    attemptJoin();
+}
 
     function goToNextRaffle() {
         if (isPasswordRaffle() || isPuzzleRaffle()) {
