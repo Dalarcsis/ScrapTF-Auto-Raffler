@@ -1,276 +1,2123 @@
-chrome.storage?.local?.get(["enabled", "wins", "winsHistory"], (data) => {
-    const enabled = data.enabled ?? false;
-    if (!enabled) {
-        console.log('[AutoRaffler] ❌ Скрипт выключен — завершение.');
-        return;
+/*
+==================================================
+ ScrapTF AutoRaffler v3.0.0 FINAL
+ PART 9.1 — CORE / BOOTLOADER / STORAGE
+==================================================
+*/
+
+
+// --------------------------------------------------
+// BOOT PROTECTION
+// --------------------------------------------------
+
+if (window.__SCRAPTF_AUTORAFFLER_RUNNING__) {
+
+    console.warn(
+        "[AutoRaffler] Второй запуск остановлен."
+    );
+
+    throw new Error(
+        "AutoRaffler already running"
+    );
+
+}
+
+
+window.__SCRAPTF_AUTORAFFLER_RUNNING__ = true;
+
+
+
+// --------------------------------------------------
+// VERSION
+// --------------------------------------------------
+
+const AUTORAFFLER_VERSION = "3.0.0";
+
+
+
+// --------------------------------------------------
+// CONFIG
+// --------------------------------------------------
+
+const AutoRafflerConfig = {
+
+    scrollDelay: 1500,
+
+
+    maxRetries: 5,
+
+
+    retryDelay: 3000,
+
+
+    checkInterval: 500,
+
+
+    refreshInterval:
+        5 * 60 * 1000,
+
+
+    nextRaffleDelay:
+        2000,
+
+
+    watchdogTimeout:
+        60000,
+
+    enterCooldown: 
+	    5100
+};
+
+
+
+// --------------------------------------------------
+// STORAGE
+// --------------------------------------------------
+
+const AutoRafflerStorage = {
+
+
+    get(keys) {
+
+
+        return new Promise(resolve => {
+
+
+            chrome.storage.local.get(
+                keys,
+                data => resolve(data)
+            );
+
+
+        });
+
+
+    },
+
+
+
+    set(data) {
+
+
+        return new Promise(resolve => {
+
+
+            chrome.storage.local.set(
+                data,
+                () => resolve()
+            );
+
+
+        });
+
+
+    },
+
+
+
+    async isEnabled() {
+
+
+        const data =
+            await this.get([
+                "enabled"
+            ]);
+
+
+
+        return data.enabled ?? false;
+
+
     }
-    runAutoRaffler();
+
+
+};
+
+
+
+// --------------------------------------------------
+// LOGGER
+// --------------------------------------------------
+
+const AutoRafflerLog = {
+
+
+    info(text) {
+
+
+        console.log(
+            `%c[AutoRaffler] ${text}`,
+            "color:#00aa00"
+        );
+
+
+    },
+
+
+
+    warn(text) {
+
+
+        console.log(
+            `[AutoRaffler] ⚠️ ${text}`
+        );
+
+
+    },
+
+
+
+    error(text) {
+
+
+        console.error(
+            `[AutoRaffler] ❌ ${text}`
+        );
+
+
+    }
+
+
+};
+
+
+
+// --------------------------------------------------
+// PAGE DETECTOR
+// --------------------------------------------------
+
+const AutoRafflerPage = {
+
+
+    isScrapTF() {
+
+
+        return (
+            location.hostname ===
+            "scrap.tf"
+        );
+
+
+    },
+
+
+
+    isRafflesList() {
+
+
+        return (
+            location.pathname ===
+            "/raffles"
+        );
+
+
+    },
+
+
+
+    isRafflePage() {
+
+
+        return (
+            location.pathname.startsWith(
+                "/raffles/"
+            )
+        );
+
+
+    }
+
+
+};
+
+
+
+// --------------------------------------------------
+// GLOBAL STATE
+// --------------------------------------------------
+
+const AutoRafflerState = {
+
+    running: false,
+
+
+    queue: [],
+
+
+    index: 0,
+
+
+
+    async load() {
+
+
+        const data =
+            await AutoRafflerStorage.get([
+
+                "raffleQueue",
+
+                "raffleIndex",
+
+            ]);
+
+
+
+        this.queue =
+            data.raffleQueue ?? [];
+
+
+
+this.index =
+    Number(
+        data.raffleIndex ?? 0
+    );
+
+
+    },
+
+
+
+    async save() {
+
+
+        await AutoRafflerStorage.set({
+
+
+            raffleQueue:
+                this.queue,
+
+
+            raffleIndex:
+                this.index,
+		
+        });
+
+
+    }
+
+
+};
+
+
+
+// --------------------------------------------------
+// MAIN BOOTLOADER
+// --------------------------------------------------
+
+(async function AutoRafflerBoot(){
+
+
+
+    if (
+        !AutoRafflerPage.isScrapTF()
+    ) {
+
+
+        return;
+
+
+    }
+
+
+
+    const enabled =
+        await AutoRafflerStorage.isEnabled();
+
+
+
+    if (!enabled) {
+
+
+        AutoRafflerLog.warn(
+            "AutoRaffler выключен."
+        );
+
+
+        return;
+
+
+    }
+
+
+
+    await AutoRafflerState.load();
+
+
+
+    AutoRafflerState.running =
+        true;
+		
+    window.AutoRafflerReady = true;
+
+
+    AutoRafflerLog.info(
+        `🚀 ScrapTF AutoRaffler v${AUTORAFFLER_VERSION} запущен`
+    );
+
+
+    window.AutoRafflerInitialized = true;
+
+
+})();
+
+/*
+==================================================
+ PART 9.2 — QUEUE MANAGER + SCANNER
+==================================================
+*/
+
+
+// --------------------------------------------------
+// QUEUE MANAGER
+// --------------------------------------------------
+
+const AutoRafflerQueue = {
+
+
+    async get() {
+
+
+        const data =
+            await AutoRafflerStorage.get([
+
+                "raffleQueue",
+
+                "raffleIndex",
+
+                "raffleAttempts"
+
+            ]);
+
+
+
+        return {
+
+
+            queue:
+                data.raffleQueue ?? [],
+
+
+            index:
+                Number(
+                    data.raffleIndex ?? 0
+                ),
+
+
+            attempts:
+                data.raffleAttempts ?? {}
+
+        };
+
+
+    },
+
+
+
+    async save(data) {
+
+
+        await AutoRafflerStorage.set({
+
+
+            raffleQueue:
+                data.queue,
+
+
+            raffleIndex:
+                data.index,
+
+
+            raffleAttempts:
+                data.attempts
+
+
+        });
+
+
+    },
+
+
+
+    async current() {
+
+
+        const data =
+            await this.get();
+
+
+
+        return (
+            data.queue[data.index]
+            ??
+            null
+        );
+
+
+    },
+
+
+
+    async next() {
+
+
+        const data =
+            await this.get();
+
+
+
+        data.index++;
+
+
+
+        await this.save(
+            data
+        );
+
+
+
+        if (
+            data.index >=
+            data.queue.length
+        ) {
+
+
+            AutoRafflerLog.info(
+                "🎯 Очередь закончена."
+            );
+
+
+
+            await this.clear();
+
+
+
+            setTimeout(
+                ()=>{
+
+
+                    location.href =
+                        "https://scrap.tf/raffles";
+
+
+                },
+
+                AutoRafflerConfig.nextRaffleDelay
+            );
+
+
+
+            return null;
+
+
+        }
+
+
+
+        return data.queue[data.index];
+
+
+    },
+
+
+
+    async clear() {
+
+
+        await AutoRafflerStorage.set({
+
+
+            raffleQueue: [],
+
+
+            raffleIndex: 0,
+
+
+            raffleAttempts: {},
+
+            nextEnterAllowedAt: 0
+	
+        });
+
+
+    }
+
+
+
+};
+
+
+
+// --------------------------------------------------
+// SCANNER
+// --------------------------------------------------
+
+const AutoRafflerScanner = {
+
+
+    wait(ms) {
+
+
+        return new Promise(
+            resolve =>
+                setTimeout(resolve, ms)
+        );
+
+
+    },
+
+    async waitForStats(timeout = 5000) {
+
+        const start = Date.now();
+
+
+        while (
+            Date.now() - start < timeout
+        ) {
+
+
+            if (
+                document.querySelector(
+                    ".raffle-list-stat h2"
+                )
+            ) {
+
+                return true;
+
+            }
+
+
+            await this.wait(100);
+
+        }
+
+
+        return false;
+
+    },
+
+
+
+    getDynamicScrollCount() {
+
+
+        const stats =
+            document.querySelectorAll(
+                ".raffle-list-stat"
+            );
+
+
+        for (
+            const stat of stats
+        ) {
+
+
+            const title =
+                stat.querySelector("h2");
+
+
+            if (
+                title &&
+                title.textContent.includes(
+                    "Open Raffles Entered"
+                )
+            ) {
+
+
+                const value =
+                    stat.querySelector("h1");
+
+
+                if (!value) {
+
+                    return 0;
+
+                }
+
+
+                const match =
+                    value.textContent
+                    .trim()
+                    .match(
+                        /(\d+)\/(\d+)/
+                    );
+
+
+                if (!match) {
+
+                    return 0;
+
+                }
+
+
+                const entered =
+                    Number(match[1]);
+
+
+                const total =
+                    Number(match[2]);
+
+
+                const notEntered =
+                    total - entered;
+
+
+
+                const scrolls =
+                    Math.max(
+                        0,
+                        Math.ceil(notEntered / 60) - 1
+                    );
+
+
+                AutoRafflerLog.info(
+                    `📊 Всего: ${total}, вступлено: ${entered}, осталось: ${notEntered}. Прокруток: ${scrolls}`
+                );
+
+
+                return scrolls;
+
+
+            }
+
+
+        }
+
+
+        AutoRafflerLog.warn(
+            "Не найден Open Raffles Entered"
+        );
+
+
+        return 0;
+
+
+    },
+
+async scroll() {
+
+
+    AutoRafflerLog.info(
+        "🔍 Поиск раздач..."
+    );
+
+
+    await this.waitForStats();
+
+
+    const scrollCount =
+        this.getDynamicScrollCount();
+
+
+
+    for (
+        let i = 0;
+        i < scrollCount;
+        i++
+    ) {
+
+
+        window.scrollTo(
+            0,
+            document.body.scrollHeight
+        );
+
+
+        AutoRafflerLog.info(
+            `⬇ Прокрутка ${i + 1}/${scrollCount}`
+        );
+
+
+        await this.wait(
+            AutoRafflerConfig.scrollDelay
+        );
+
+
+    }
+
+
+},
+
+
+
+    getPanels() {
+
+
+        return Array.from(
+            document.querySelectorAll(
+                ".panel-raffle"
+            )
+        );
+
+
+    },
+
+
+
+    invalid(panel) {
+
+
+        if (
+            panel.classList.contains(
+                "raffle-entered"
+            )
+        ) {
+
+            return true;
+
+        }
+
+
+
+        if (
+            panel.innerHTML.includes(
+                "Withdraw Items"
+            )
+        ) {
+
+            return true;
+
+        }
+
+
+
+        return false;
+
+
+    },
+
+
+
+    getLink(panel) {
+
+
+        const link =
+            panel.querySelector(
+                "a[href^='/raffles/']"
+            );
+
+
+
+        if (!link) {
+
+            return null;
+
+        }
+
+
+
+        return (
+            "https://scrap.tf" +
+            link.getAttribute("href")
+        );
+
+
+    },
+
+
+
+    collect() {
+
+
+        const result = [];
+
+
+
+        for (
+            const panel of this.getPanels()
+        ) {
+
+
+
+            if (
+                this.invalid(panel)
+            ) {
+
+                continue;
+
+            }
+
+
+
+            const link =
+                this.getLink(panel);
+
+
+
+            if (
+                link &&
+                !result.includes(link)
+            ) {
+
+
+                result.push(link);
+
+
+            }
+
+
+        }
+
+
+
+        return result;
+
+
+    },
+
+
+
+    async start() {
+
+
+        await this.scroll();
+
+
+
+        const raffles =
+            this.collect();
+
+
+
+        if (
+            !raffles.length
+        ) {
+
+
+            AutoRafflerLog.warn(
+                "Раздачи не найдены. Обновление через 5 минут."
+            );
+
+
+
+            setTimeout(
+                ()=>location.reload(),
+                AutoRafflerConfig.refreshInterval
+            );
+
+
+
+            return;
+
+        }
+
+
+
+        await AutoRafflerStorage.set({
+
+
+            raffleQueue:
+                raffles,
+
+
+            raffleIndex:
+                0,
+
+
+            raffleAttempts:
+                {}
+
+
+        });
+
+
+
+        AutoRafflerLog.info(
+            `✅ Найдено раздач: ${raffles.length}`
+        );
+
+
+
+        location.href =
+            raffles[0];
+
+
+    }
+
+
+};
+
+/*
+==================================================
+ PART 9.3 — EXECUTOR + CAPTCHA HANDLER
+==================================================
+*/
+
+
+// --------------------------------------------------
+// CAPTCHA HANDLER
+// --------------------------------------------------
+
+const AutoRafflerCaptcha = {
+
+
+    detected:false,
+
+
+
+    isVisibleElement(el) {
+
+
+        return (
+            el &&
+            el.offsetParent !== null &&
+            el.offsetWidth > 0 &&
+            el.offsetHeight > 0
+        );
+
+
+    },
+
+
+
+    isVisible() {
+
+
+        const selectors = [
+
+            "#raffle-captcha-holder",
+
+            "#turnstile-container",
+
+            ".cf-turnstile",
+
+            "[data-sitekey]"
+
+        ];
+
+
+
+        for (
+            const selector of selectors
+        ) {
+
+
+            const elements =
+                document.querySelectorAll(
+                    selector
+                );
+
+
+
+            for (
+                const el of elements
+            ) {
+
+
+                if (
+                    this.isVisibleElement(el)
+                ) {
+
+                    return true;
+
+                }
+
+
+            }
+
+
+        }
+
+
+
+        return false;
+
+
+    },
+
+
+
+    hasError() {
+
+
+        return Array.from(
+            document.querySelectorAll(
+                ".alert"
+            )
+        )
+        .some(el =>
+            el.textContent.includes(
+                "Captcha did not complete"
+            )
+        );
+
+
+    },
+
+
+
+    notify() {
+
+
+        try {
+
+
+            chrome.runtime.sendMessage({
+
+                type:"notify",
+
+                title:
+                    "🤖 Требуется внимание",
+
+                message:
+                    "Появилась капча ScrapTF."
+
+            });
+
+
+        }
+        catch(e){}
+
+
+
+    },
+
+
+
+    async waitForSolve() {
+
+
+        if (
+            !this.isVisible()
+        ) {
+
+
+            return;
+
+
+        }
+
+
+
+        if (
+            !this.detected
+        ) {
+
+
+            this.detected = true;
+
+
+            AutoRafflerLog.warn(
+                "🧩 Ожидание капчи..."
+            );
+
+
+
+            this.notify();
+
+
+        }
+
+
+
+        return new Promise(resolve=>{
+
+
+            const timer =
+                setInterval(()=>{
+
+
+                    if (
+                        !this.isVisible()
+                    ) {
+
+
+                        clearInterval(timer);
+
+
+
+                        this.detected=false;
+
+
+
+                        AutoRafflerLog.info(
+                            "✅ Капча решена."
+                        );
+
+
+
+                        resolve();
+
+
+                    }
+
+
+                },
+                AutoRafflerConfig.checkInterval
+            );
+
+
+        });
+
+
+    }
+
+
+};
+
+// --------------------------------------------------
+// ENTER WAITER
+// --------------------------------------------------
+
+const AutoRafflerWaiter = {
+
+async waitForGlobalCooldown() {
+
+    const data =
+        await AutoRafflerStorage.get([
+            "nextEnterAllowedAt"
+        ]);
+
+    const nextAllowed =
+        data.nextEnterAllowedAt ?? 0;
+
+    const remaining =
+        nextAllowed - Date.now();
+
+    if (remaining <= 0) {
+
+        return;
+
+    }
+
+    AutoRafflerLog.info(
+        `⌛ Глобальный кулдаун: ${Math.ceil(remaining / 1000)} сек.`
+    );
+
+    await this.wait(remaining);
+
+},
+
+    state: "",
+
+    wait(ms) {
+
+        return new Promise(resolve =>
+            setTimeout(resolve, ms)
+        );
+
+    },
+
+    logOnce(state, text) {
+
+        if (this.state !== state) {
+
+            this.state = state;
+            AutoRafflerLog.info(text);
+
+        }
+
+    },
+
+    findCooldown() {
+
+        const text = document.body.innerText;
+
+        const match = text.match(
+            /Please wait\s+(\d+)\s+more second/i
+        );
+
+        return match ? Number(match[1]) : null;
+
+    },
+
+    getButton() {
+
+        return Array.from(
+            document.querySelectorAll("button")
+        ).find(btn =>
+            btn.textContent.trim().includes("Enter Raffle")
+        );
+
+    },
+
+    async ready() {
+
+        while (true) {
+
+            // Cloudflare
+            if (AutoRafflerCaptcha.isVisible()) {
+
+                this.logOnce(
+                    "cloudflare",
+                    "🧩 Ожидание Cloudflare..."
+                );
+
+                await AutoRafflerCaptcha.waitForSolve();
+                continue;
+            }
+
+            const button = this.getButton();
+
+            if (!button) {
+
+                this.logOnce(
+                    "button",
+                    "⏳ Ожидание появления кнопки..."
+                );
+
+                await this.wait(500);
+                continue;
+            }
+
+            if (button.disabled) {
+
+                this.logOnce(
+                    "disabled",
+                    "⏳ Кнопка пока недоступна..."
+                );
+
+                await this.wait(500);
+                continue;
+            }
+
+            const cooldown = this.findCooldown();
+
+            if (cooldown !== null) {
+
+                this.logOnce(
+                    "cooldown",
+                    `⏳ Cooldown ScrapTF: ${cooldown} сек.`
+                );
+
+                await this.wait(cooldown * 1000 + 300);
+                continue;
+            }
+
+            this.state = "";
+
+            AutoRafflerLog.info(
+                "✅ Можно вступать."
+            );
+
+            return;
+
+        }
+
+    }
+
+};
+
+// --------------------------------------------------
+// RAFFLE EXECUTOR
+// --------------------------------------------------
+
+const AutoRafflerExecutor = {
+
+
+    isPassword() {
+
+
+        return !!document.querySelector(
+            "#raffle-password"
+        );
+
+
+    },
+
+
+
+    isPuzzle() {
+
+
+        return (
+            location.pathname ===
+            "/raffles/puzzle"
+        );
+
+
+    },
+
+
+
+    alreadyJoined() {
+
+
+        return !!document.querySelector(
+            "#raffle-leave"
+        );
+
+
+    },
+
+
+
+    findButton() {
+
+
+        return Array.from(
+            document.querySelectorAll(
+                "button"
+            )
+        )
+        .find(btn=>{
+
+
+            if (
+                btn.offsetParent === null
+            ) {
+
+                return false;
+
+            }
+
+
+
+            return btn.textContent
+                .trim()
+                .includes(
+                    "Enter Raffle"
+                );
+
+
+        });
+
+
+    },
+
+
+
+    async clickEnter() {
+
+
+        const btn =
+            this.findButton();
+
+
+
+        if (!btn) {
+
+
+            AutoRafflerLog.warn(
+                "Кнопка Enter Raffle не найдена."
+            );
+
+
+            return false;
+
+
+        }
+
+
+        await AutoRafflerWaiter.waitForGlobalCooldown();
+
+        AutoRafflerLog.info(
+            "🔘 Enter Raffle"
+        );
+
+
+
+        btn.click();
+
+
+
+        return true;
+
+
+    },
+
+
+
+isSuccess() {
+
+
+    // Основной способ ScrapTF
+    if (
+        document.querySelector(
+            "#raffle-leave"
+        )
+    ) {
+
+        return true;
+
+    }
+
+
+
+    // Дополнительные варианты
+    const body =
+        document.body.innerText;
+
+
+
+    if (
+        body.includes("Leave Raffle") ||
+        body.includes("You have entered") ||
+        body.includes("Withdraw Items")
+    ) {
+
+        return true;
+
+    }
+
+
+
+    return false;
+
+
+},
+
+
+
+async waitResult() {
+
+
+    return new Promise(resolve=>{
+
+
+        let time = 0;
+
+
+
+        const timer =
+            setInterval(async()=>{
+
+
+                // Сначала проверяем капчу
+                await AutoRafflerCaptcha.waitForSolve();
+
+
+
+                // Потом проверяем вход
+                if(
+                    this.isSuccess()
+                ){
+
+
+                    clearInterval(timer);
+
+
+
+                    AutoRafflerLog.info(
+                        "✅ Участие подтверждено."
+                    );
+
+const nextAllowed =
+    Date.now() + AutoRafflerConfig.enterCooldown;
+
+await AutoRafflerStorage.set({
+
+    nextEnterAllowedAt: nextAllowed
+
 });
 
-function runAutoRaffler() {
-    const SCROLL_COUNT = 2;
-    const SCROLL_DELAY_MS = 1500;
-    const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000;
-    const WAIT_AFTER_CLICK_MS = 10;
-    const ENTERING_CHECK_INTERVAL_MS = 250;
+AutoRafflerLog.info(
+    `⏳ Следующий вход возможен через 5 сек.`
+);
 
-    function isCaptchaVisible() {
-        const captcha = document.querySelector("#raffle-captcha-holder, #turnstile-container");
-        return captcha && Array.from(captcha.children).some(el => el.offsetParent !== null);
-    }
+resolve(true);
 
-    function isPasswordRaffle() {
-        return document.querySelector("#raffle-password") !== null;
-    }
 
-    function isPuzzleRaffle() {
-        return window.location.pathname === "/raffles/puzzle";
-    }
+                    return;
 
-    async function autoScrollAndCollectRaffles() {
-        console.log("[AutoRaffler] 🔍 Поиск раздач...");
-
-        const initialRaffles = Array.from(document.querySelectorAll(".panel-raffle"));
-        const lastVisible = initialRaffles.at(-1);
-        const alreadyJoined = lastVisible?.classList.contains("raffle-entered");
-
-        if (!alreadyJoined) {
-            for (let i = 0; i < SCROLL_COUNT; i++) {
-                window.scrollTo(0, document.body.scrollHeight);
-                await new Promise(r => setTimeout(r, SCROLL_DELAY_MS));
-            }
-        }
-
-        const raffles = Array.from(document.querySelectorAll(".panel-raffle"))
-            .filter(panel =>
-                !panel.classList.contains("raffle-entered") &&
-                !panel.innerHTML.includes("Withdraw Items")
-            )
-            .map(panel => {
-                const link = panel.querySelector("a[href^='/raffles/']");
-                return link ? "https://scrap.tf" + link.getAttribute("href") : null;
-            })
-            .filter(Boolean);
-
-        if (raffles.length === 0) {
-            console.log("[AutoRaffler] ❌ Раздачи не найдены. ⏳ Перезагрузка через 5 минут...");
-            setTimeout(() => window.location.reload(), AUTO_REFRESH_INTERVAL);
-            return;
-        }
-
-        localStorage.setItem("raffleQueue", JSON.stringify(raffles));
-        localStorage.setItem("raffleIndex", "0");
-        console.log(`[AutoRaffler] ✅ Найдено раздач: ${raffles.length}`);
-        window.location.href = raffles[0];
-    }
-
-function handleSingleRaffle() {
-    const MAX_RETRIES = 3;
-    const RETRY_DELAY_MS = 3000;
-    const WAIT_AFTER_CLICK_MS = 100;
-    const CHECK_INTERVAL_MS = 300;
-
-    let queue = JSON.parse(localStorage.getItem("raffleQueue") || "[]");
-    let index = parseInt(localStorage.getItem("raffleIndex") || "0");
-
-    console.log(`[AutoRaffler] 🎫 Обработка раздачи ${index + 1} из ${queue.length}`);
-
-    if (isPasswordRaffle() || isPuzzleRaffle()) {
-        console.log("[AutoRaffler] 🔒 Раздача с паролем/пазлом — пропуск.");
-        goToNextRaffle();
-        return;
-    }
-
-    const leaveBtn = document.querySelector("#raffle-leave");
-    if (leaveBtn) {
-        console.log("[AutoRaffler] 🚪 Уже участвуешь — дальше.");
-        goToNextRaffle();
-        return;
-    }
-
-    function isCaptchaError() {
-        const alerts = document.querySelectorAll(".alert");
-        return Array.from(alerts).some(el =>
-            el.textContent.includes("Captcha did not complete")
-        );
-    }
-
-    function clickEnterButton() {
-        const buttons = document.querySelectorAll("button.btn.btn-embossed.btn-info.btn-lg");
-        for (const btn of buttons) {
-            if (btn.offsetParent === null) continue;
-            if (btn.textContent.trim().includes("Enter Raffle")) {
-                console.log("[AutoRaffler] 🔘 Нажимаю Enter Raffle...");
-                btn.click();
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function attemptJoin(retryCount = 0) {
-        if (retryCount > MAX_RETRIES) {
-            console.log("[AutoRaffler] ❌ Превышен лимит попыток — дальше.");
-            goToNextRaffle();
-            return;
-        }
-
-        if (!clickEnterButton()) {
-            console.log("[AutoRaffler] ❓ Кнопка не найдена — повтор...");
-            setTimeout(() => attemptJoin(retryCount + 1), RETRY_DELAY_MS);
-            return;
-        }
-
-        let waited = 0;
-        let captchaDetected = false;
-
-        const interval = setInterval(() => {
-            // ❌ Ошибка капчи (самое важное)
-            if (isCaptchaError()) {
-                console.log("[AutoRaffler] ❌ Ошибка капчи — повтор попытки...");
-                clearInterval(interval);
-                setTimeout(() => attemptJoin(retryCount + 1), RETRY_DELAY_MS);
-                return;
-            }
-
-            // 🧩 Капча появилась
-            if (isCaptchaVisible()) {
-                if (!captchaDetected) {
-                    captchaDetected = true;
-                    console.log("[AutoRaffler] 🧩 Капча обнаружена — жду решения...");
-                    chrome.runtime.sendMessage({
-                        type: "notify",
-                        title: "🤖 Требуется внимание",
-                        message: "Появилась капча. Решите её вручную."
-                    });
                 }
-                return;
-            }
 
-            // ✅ Капча была и исчезла
-            if (captchaDetected && !isCaptchaVisible()) {
-                console.log("[AutoRaffler] ✅ Капча решена.");
-                clearInterval(interval);
-                goToNextRaffle();
-                return;
-            }
 
-            // ✅ Успешное вступление
-            const confirm = document.querySelector(".raffle-entered-msg");
-            const leaveAfter = document.querySelector("#raffle-leave");
 
-            if ((confirm && confirm.style.display !== "none") || leaveAfter) {
-                console.log("[AutoRaffler] ✅ Участие подтверждено.");
-                clearInterval(interval);
-                goToNextRaffle();
-                return;
-            }
+                time += 500;
 
-            // ⏳ Кнопка "Entering..."
-            const entering = Array.from(document.querySelectorAll("button[disabled]"))
-                .find(b => b.textContent.includes("Entering"));
 
-            if (entering) {
-                waited = 0;
-                return;
-            }
 
-            // ⏱ Таймаут
-            waited += CHECK_INTERVAL_MS;
-            if (waited >= WAIT_AFTER_CLICK_MS) {
-                console.log("[AutoRaffler] ⏱ Таймаут — пробую снова...");
-                clearInterval(interval);
-                setTimeout(() => attemptJoin(retryCount + 1), RETRY_DELAY_MS);
-            }
+                if(
+                    time >= 5000
+                ){
 
-        }, CHECK_INTERVAL_MS);
-    }
 
-    attemptJoin();
-}
+                    clearInterval(timer);
 
-    function goToNextRaffle() {
-        if (isPasswordRaffle() || isPuzzleRaffle()) {
-            console.log("[AutoRaffler] 🧠 Это раздачи с паролем или пазлом — переход отменён.");
+
+
+                    AutoRafflerLog.warn(
+                        "⌛ Не дождался подтверждения входа."
+                    );
+
+
+
+                    resolve(false);
+
+
+                }
+
+
+
+            },
+            500);
+
+
+    });
+
+
+},
+
+
+
+    async next() {
+
+
+        const next =
+            await AutoRafflerQueue.next();
+
+
+
+        if (
+            next
+        ) {
+
+
+            location.href =
+                next;
+
+
+        }
+
+
+    },
+
+
+
+    async start() {
+
+
+        const current =
+            await AutoRafflerQueue.current();
+
+
+
+        if (
+            !current
+        ) {
+
+
+            AutoRafflerLog.warn(
+                "Очередь пустая."
+            );
+
+
             return;
+
+
         }
 
-        const queue = JSON.parse(localStorage.getItem("raffleQueue") || "[]");
-        let index = parseInt(localStorage.getItem("raffleIndex") || "0");
-        index += 1;
-        localStorage.setItem("raffleIndex", index.toString());
 
-        if (index >= queue.length) {
-            setTimeout(() => {
-                window.location.replace("https://scrap.tf/raffles");
-            }, 2000);
-        } else {
-            window.location.href = queue[index];
+
+        AutoRafflerLog.info(
+            "🎫 Обработка раздачи."
+        );
+
+
+
+        if (
+            this.isPassword() ||
+            this.isPuzzle()
+        ) {
+
+
+            AutoRafflerLog.info(
+                "🔒 Пропуск закрытой раздачи."
+            );
+
+
+            await this.next();
+
+
+            return;
+
         }
+
+
+
+        if (
+            this.alreadyJoined()
+        ) {
+
+
+            AutoRafflerLog.info(
+                "🚪 Уже участвуешь."
+            );
+
+
+            await this.next();
+
+
+            return;
+
+        }
+
+        await AutoRafflerWaiter.ready();
+
+        const clicked =
+            await this.clickEnter();
+
+
+
+        if (!clicked) {
+
+
+            await this.next();
+
+
+            return;
+
+
+        }
+
+
+
+        const success =
+            await this.waitResult();
+
+
+
+        if (
+            success
+        ) {
+
+
+            await this.next();
+
+
+        }
+        else {
+
+
+            AutoRafflerLog.warn(
+                "Не удалось войти. Повтор."
+            );
+
+
+            setTimeout(
+                ()=>this.start(),
+                AutoRafflerConfig.retryDelay
+            );
+
+
+        }
+
+
     }
 
-    if (window.location.pathname === "/raffles") {
-        autoScrollAndCollectRaffles();
-    }
-    if (window.location.pathname.startsWith("/raffles/")) {
-        handleSingleRaffle();
-    }
-}
 
-// 👑 Уникальные уведомления о победах с сохранением истории
-(function () {
-    const panel = document.querySelector('div.panel.panel-info .panel-heading');
+};
 
-    if (!panel || !panel.textContent.includes('Raffles you won')) {
-        chrome.storage.local.set({ wins: [] }, () => {
-            console.log("[AutoRaffler] 🧹 Побед нет — текущий журнал очищен.");
-        });
-        return;
-    }
+/*
+==================================================
+ PART 9.4 — WINS + WATCHDOG + OPTIMIZER
+==================================================
+*/
 
-    const raffleBlocks = document.querySelectorAll('.panel.panel-info .panel-raffle');
-    if (!raffleBlocks.length) {
-        chrome.storage.local.set({ wins: [] }, () => {
-            console.log("[AutoRaffler] 🧹 Блоков побед нет — текущий журнал очищен.");
-        });
-        return;
-    }
 
-    const currentWins = [];
+// --------------------------------------------------
+// WIN TRACKER
+// --------------------------------------------------
 
-    raffleBlocks.forEach(block => {
-        const titleEl = block.querySelector('.raffle-name a');
-        const dateEl = block.querySelector('.raffle-start-time');
-        const itemEl = block.querySelector('.panel-raffle-items .item');
-        if (!titleEl || !dateEl || !itemEl) return;
+const AutoRafflerWins = {
 
-        const title = titleEl.textContent.trim();
-        const date = new Date(dateEl.textContent.trim()).toLocaleDateString('ru-RU');
-        const item = itemEl.getAttribute('data-title');
-        const entry = `${date} Вы победили в розыгрыше "${title}": "${item}"`;
 
-        currentWins.push(entry);
-    });
+    create(block) {
 
-    chrome.storage.local.get({ wins: [], winsHistory: [] }, data => {
-        const oldHistory = data.winsHistory || [];
-        const updatedHistory = [...oldHistory];
 
-        currentWins.forEach(entry => {
-            if (!oldHistory.includes(entry)) {
-                chrome.runtime.sendMessage({
-                    type: "notify",
-                    title: "🎉 Победа!",
-                    message: entry
-                });
-                console.log("🏆 Новая победа:", entry);
-                updatedHistory.push(entry);
+        const title =
+            block.querySelector(
+                ".raffle-name a"
+            );
+
+
+        const date =
+            block.querySelector(
+                ".raffle-start-time"
+            );
+
+
+        const item =
+            block.querySelector(
+                ".panel-raffle-items .item"
+            );
+
+
+
+        if (
+            !title ||
+            !date ||
+            !item
+        ) {
+
+            return null;
+
+        }
+
+
+
+        const text =
+            `${new Date(
+                date.textContent.trim()
+            ).toLocaleDateString("ru-RU")} Вы победили в розыгрыше "${title.textContent.trim()}": "${item.getAttribute("data-title")}"`;
+
+
+
+        return {
+
+            id:
+                btoa(text),
+
+            text
+
+        };
+
+
+    },
+
+
+
+    collect() {
+
+
+        const blocks =
+            document.querySelectorAll(
+                ".panel.panel-info .panel-raffle"
+            );
+
+
+
+        const wins = [];
+
+
+
+        blocks.forEach(block=>{
+
+
+            const win =
+                this.create(block);
+
+
+
+            if(win){
+
+                wins.push(win);
+
             }
+
+
         });
 
-        chrome.storage.local.set({
-            wins: currentWins,
-            winsHistory: updatedHistory
+
+
+        return wins;
+
+
+    },
+
+
+
+    async check() {
+
+
+        const current =
+            this.collect();
+
+
+
+        if(
+            !current.length
+        ){
+
+            return;
+
+        }
+
+
+
+        const data =
+            await AutoRafflerStorage.get([
+
+                "winsHistory"
+
+            ]);
+
+
+
+        const history =
+            data.winsHistory ?? [];
+
+
+
+        const updated =
+            [...history];
+
+
+
+        for(
+            const win of current
+        ){
+
+
+            if(
+                !history.some(
+                    old =>
+                        old.id === win.id
+                )
+            ){
+
+
+                AutoRafflerLog.info(
+                    "🏆 Новая победа!"
+                );
+
+
+
+                try{
+
+
+                    chrome.runtime.sendMessage({
+
+                        type:"notify",
+
+                        title:"🎉 Победа!",
+
+                        message:
+                            win.text
+
+                    });
+
+
+                }
+                catch(e){}
+
+
+
+                updated.push(win);
+
+
+            }
+
+
+        }
+
+
+
+        await AutoRafflerStorage.set({
+
+            wins:
+                current,
+
+
+            winsHistory:
+                updated
+
+
         });
-    });
-})();
+
+
+    }
+
+
+};
+
+
+
+// --------------------------------------------------
+// WATCHDOG
+// --------------------------------------------------
+
+const AutoRafflerWatchdog = {
+
+
+    started:
+        Date.now(),
+
+
+
+    lastActivity:
+        Date.now(),
+
+
+
+    touch(reason="") {
+
+
+        this.lastActivity =
+            Date.now();
+
+
+
+        if(reason){
+
+            AutoRafflerLog.info(
+                `🔄 ${reason}`
+            );
+
+        }
+
+
+    },
+
+
+
+    start(){
+
+
+        AutoRafflerLog.info(
+            "👁 Watchdog активирован."
+        );
+
+
+
+        setInterval(()=>{
+
+
+            const idle =
+                Date.now()
+                -
+                this.lastActivity;
+
+
+
+            if(
+                idle >
+                AutoRafflerConfig.watchdogTimeout
+            ){
+
+
+                AutoRafflerLog.warn(
+                    "Зависание обнаружено."
+                );
+
+
+
+                location.reload();
+
+
+            }
+
+
+        },
+        5000);
+
+
+
+    }
+
+
+};
+
+
+
+// --------------------------------------------------
+// FINAL OPTIMIZER
+// --------------------------------------------------
+
+const AutoRafflerOptimizer = {
+
+
+    async start(){
+
+
+        AutoRafflerLog.info(
+            "⚙ Финальная проверка."
+        );
+
+
+
+        await AutoRafflerWins.check();
+
+
+
+        AutoRafflerWatchdog.start();
+
+
+
+        console.log(
+            "%c========== ScrapTF AutoRaffler ==========",
+            "color:#0088ff;font-weight:bold"
+        );
+
+
+        console.table({
+
+            version:
+                AUTORAFFLER_VERSION,
+
+
+            page:
+                location.pathname,
+
+
+            queue:
+                AutoRafflerState.queue.length,
+
+
+            index:
+                AutoRafflerState.index,
+
+
+            running:
+                AutoRafflerState.running
+
+        });
+
+
+        console.log(
+            "%c==========================================",
+            "color:#0088ff;font-weight:bold"
+        );
+
+
+    }
+
+
+};
+
+/*
+==================================================
+ FINAL START ROUTER
+==================================================
+*/
+
+setTimeout(async ()=>{
+
+
+    if(
+        !window.AutoRafflerInitialized
+    ){
+
+        AutoRafflerLog.warn(
+            "Ожидание инициализации..."
+        );
+
+        return;
+
+    }
+
+
+
+    if(
+        AutoRafflerPage.isRafflesList()
+    ){
+
+        AutoRafflerLog.info(
+            "📋 Запуск сканера."
+        );
+
+
+        await AutoRafflerScanner.start();
+
+
+    }
+
+
+
+    if(
+        AutoRafflerPage.isRafflePage()
+    ){
+
+        AutoRafflerLog.info(
+            "🎫 Запуск входа в раздачу."
+        );
+
+
+        await AutoRafflerExecutor.start();
+
+
+    }
+
+
+
+},1500);
