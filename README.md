@@ -3,7 +3,7 @@
 </div>
 
 # 📝 Описание / Description
-RU: ScrapTF-Auto-Raffler - бесплатное расширение для Google Chrome, автоматически вступающее во все раздачи на [Scrap.tf](https://scrap.tf).</br>
+RU: ScrapTF-Auto-Raffler — бесплатное расширение для Google Chrome, автоматически вступающее во все раздачи на [Scrap.tf](https://scrap.tf).</br>
 EN: ScrapTF-Auto-Raffler — a free Google Chrome extension that automatically enters all raffles on [Scrap.tf](https://scrap.tf).
 
 # ⚡ Особенности / Peculiarities
@@ -22,14 +22,14 @@ EN:
 
 # 📦 Установка / Installation
 RU:
-- Скачать последнюю версию [ScrapTF Auto Raffler RU](https://github.com/Dalarcsis/ScrapTF-Auto-Raffler/releases/download/v2.6.9ru/scraptf-auto-raffler-v2.6.9.RU.zip).
+- Скачать последнюю версию [ScrapTF Auto Raffler RU](https://github.com/Dalarcsis/ScrapTF-Auto-Raffler/releases/download/v3.0.0ru/scraptf-auto-raffler-v3.0.0.RU.zip).
 - Распаковать архив.
 - Зайти в Google Chrome, "Расширения", "Управление расширениями". В правом верхнем углу нажать кнопку "Режим разработчика". Слева сверху нажать "Загрузить распакованное расширение" и указать путь к папке с расширением.
 - После установки расширения нажать на иконку расширения. Чтобы включить его, нажмите кнопку ВКЛ.</br>
-ВНИМАНИЕ: удалять папку с расширением нельзя! Google Chrome не копирует ее в свою директорию, из-за чего в случае удаления выдаст ошибку об отсутствии нужных файлов для запуска. Совет - переместите ее в удобное для вас место.
+ВНИМАНИЕ: удалять папку с расширением нельзя! Google Chrome не копирует её в свою директорию, из-за чего в случае удаления выдаст ошибку об отсутствии нужных файлов для запуска. Совет — переместите её в удобное для вас место.
 
 EN:
-- Download the latest version [ScrapTF Auto Raffler EN](https://github.com/Dalarcsis/ScrapTF-Auto-Raffler/releases/download/v.2.6.9en/scraptf-auto-raffler-v2.6.9.EN.zip).
+- Download the latest version [ScrapTF Auto Raffler EN](https://github.com/Dalarcsis/ScrapTF-Auto-Raffler/releases/download/v3.0.0en/scraptf-auto-raffler-v3.0.0.EN.zip).
 - Unzip the archive.
 - Go to Google Chrome, "Extensions", "Manage extensions". In the upper right corner, click the "Developer mode" button. In the upper left, click "Load unpacked extension" and specify the path to the folder with the extension.
 - After installing the extension, click on the extension icon. To enable it, click the ON button.</br>
@@ -39,7 +39,7 @@ ATTENTION: you cannot delete the folder with the extension! Google Chrome does n
 RU:
 1. Не требует ваши личные данные аккаунта [Steam](https://store.steampowered.com/).
 2. Не использует ваш логин и пароль на [Scrap.tf](https://scrap.tf).
-3. Не копирует и не крадет информацию.
+3. Не копирует и не крадёт информацию.
 </br>
 
 EN:
@@ -51,7 +51,7 @@ EN:
 RU:
 1. Когда вы заходите на главную страницу розыгрышей [Scrap.tf](https://scrap.tf/raffles), расширение начинает собирать ссылки на все невступленные раздачи.
 2. После сбора ссылок расширение автоматически заходит на каждую раздачу и нажимает кнопку "Enter Raffle".
-3. Когда последняя раздача обработана, расширение уходит снова на главную страницу. Если на главной странице нет новых розыгрышей, то будет запланировано обновление страницы через 5 минут. Через это время расширение начнет повторную работу.
+3. Когда последняя раздача обработана, расширение уходит снова на главную страницу. Если на главной странице нет новых розыгрышей, то будет запланировано обновление страницы через 5 минут. Через это время расширение начнёт повторную работу.
 </br>
 
 EN:
