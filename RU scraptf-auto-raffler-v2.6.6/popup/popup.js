@@ -22,23 +22,61 @@ function updateButton(enabled) {
 }
 
 logBtn.addEventListener("click", () => {
-  chrome.storage.local.get("wins", (data) => {
-    const wins = data.wins || [];
+  chrome.storage.local.get("winsHistory", (data) => {
+    const wins =
+    data.winsHistory ?? [];
     if (logDiv.style.display === "block") {
       logDiv.style.display = "none";
     } else {
-      logDiv.innerHTML = wins.length
-  ? wins.map(w => {
-      const match = w.match(/^(\d{2}\.\d{2}\.\d{4}) Вы победили в розыгрыше "(.*?)": "(.*?)"$/);
-      if (match) {
-        const date = `<span style="color:#0047AB;">${match[1]}</span>`;
-        const raffle = match[2];
-        const item = `<span style="color:#B00000;">${match[3]}</span>`;
-        return `<div>${date} Вы победили в розыгрыше "${raffle}":<br>${item}</div>`;
-      }
-      return `<div>${w}</div>`;
-    }).join("")
-  : "<em>Нет записей</em>";
+if (!wins.length) {
+
+    logDiv.innerHTML =
+        "<em>Нет записей</em>";
+
+} else {
+
+    logDiv.innerHTML =
+        wins.map(w => {
+
+            if (
+                typeof w === "string"
+            ) {
+
+                return `<div>${w}</div>`;
+
+            }
+
+            return `
+                <div style="
+                    margin-bottom:10px;
+                    padding-bottom:8px;
+                    border-bottom:1px solid #333;
+                ">
+
+                    <span style="color:#0047AB;">
+                        ${w.date}
+                    </span>
+
+                    <br>
+
+                    Вы победили в розыгрыше
+
+                    <br>
+
+                    <b>${w.raffle}</b>
+
+                    <br>
+
+                    <span style="color:#B00000;">
+                        ${w.item}
+                    </span>
+
+                </div>
+            `;
+
+        }).join("");
+
+}
       logDiv.style.display = "block";
     }
   });
