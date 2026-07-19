@@ -31,7 +31,7 @@ window.__SCRAPTF_AUTORAFFLER_RUNNING__ = true;
 // VERSION
 // --------------------------------------------------
 
-const AUTORAFFLER_VERSION = "3.0.0";
+const AUTORAFFLER_VERSION = "3.0.1";
 
 
 
@@ -238,63 +238,17 @@ const AutoRafflerPage = {
 
 const AutoRafflerState = {
 
+    initialized: false,
+
     running: false,
 
+    lastActivity: Date.now(),
 
-    queue: [],
+    touch() {
 
-
-    index: 0,
-
-
-
-    async load() {
-
-
-        const data =
-            await AutoRafflerStorage.get([
-
-                "raffleQueue",
-
-                "raffleIndex",
-
-            ]);
-
-
-
-        this.queue =
-            data.raffleQueue ?? [];
-
-
-
-this.index =
-    Number(
-        data.raffleIndex ?? 0
-    );
-
-
-    },
-
-
-
-    async save() {
-
-
-        await AutoRafflerStorage.set({
-
-
-            raffleQueue:
-                this.queue,
-
-
-            raffleIndex:
-                this.index,
-		
-        });
-
+        this.lastActivity = Date.now();
 
     }
-
 
 };
 
@@ -304,59 +258,40 @@ this.index =
 // MAIN BOOTLOADER
 // --------------------------------------------------
 
-(async function AutoRafflerBoot(){
+(async function AutoRafflerBoot() {
 
-
-
-    if (
-        !AutoRafflerPage.isScrapTF()
-    ) {
-
+    if (!AutoRafflerPage.isScrapTF()) {
 
         return;
 
-
     }
-
-
 
     const enabled =
         await AutoRafflerStorage.isEnabled();
 
-
-
     if (!enabled) {
-
 
         AutoRafflerLog.warn(
             "AutoRaffler выключен."
         );
 
-
         return;
-
 
     }
 
+    window.__SCRAPTF_AUTORAFFLER_RUNNING__ = true;
 
+    window.AutoRafflerInitialized = true;
 
-    await AutoRafflerState.load();
-
-
-
-    AutoRafflerState.running =
-        true;
-		
     window.AutoRafflerReady = true;
 
+    AutoRafflerState.initialized = true;
+
+    AutoRafflerState.running = true;
 
     AutoRafflerLog.info(
         `🚀 ScrapTF AutoRaffler v${AUTORAFFLER_VERSION} запущен`
     );
-
-
-    window.AutoRafflerInitialized = true;
-
 
 })();
 
@@ -1711,97 +1646,113 @@ resolve(true);
 
 const AutoRafflerWins = {
 
+create(block) {
 
-    create(block) {
+    const title =
+        block.querySelector(
+            ".raffle-name a"
+        );
 
+    const date =
+        block.querySelector(
+            ".raffle-start-time"
+        );
 
-        const title =
-            block.querySelector(
-                ".raffle-name a"
-            );
+    const item =
+        block.querySelector(
+            ".panel-raffle-items .item"
+        );
 
+    if (
+        !title ||
+        !date ||
+        !item
+    ) {
 
-        const date =
-            block.querySelector(
-                ".raffle-start-time"
-            );
+        return null;
 
+    }
 
-        const item =
-            block.querySelector(
-                ".panel-raffle-items .item"
-            );
+    const rawDate =
+        date.textContent.trim();
 
+    let timestamp;
+    let dateText;
 
+    // Unix timestamp
+    if (/^\d+$/.test(rawDate)) {
 
-        if (
-            !title ||
-            !date ||
-            !item
-        ) {
+        timestamp = Number(rawDate);
 
-            return null;
+        dateText = new Date(timestamp * 1000)
+            .toLocaleDateString("ru-RU");
+
+    } else {
+
+        // Обычная дата
+        const parsed = new Date(rawDate);
+
+        if (!isNaN(parsed.getTime())) {
+
+            timestamp =
+                Math.floor(parsed.getTime() / 1000);
+
+            dateText =
+                parsed.toLocaleDateString("ru-RU");
+
+        } else {
+
+            timestamp = Math.floor(Date.now() / 1000);
+
+            dateText = rawDate;
 
         }
 
+    }
 
+    const raffle =
+        title.textContent.trim();
 
-        const text =
-            `${new Date(
-                date.textContent.trim()
-            ).toLocaleDateString("ru-RU")} Вы победили в розыгрыше "${title.textContent.trim()}": "${item.getAttribute("data-title")}"`;
+    const prize =
+        item.dataset.title ??
+        item.getAttribute("data-title") ??
+        "Неизвестный предмет";
 
+    const id =
+        `${timestamp}_${raffle}_${prize}`;
 
+    return {
 
-        return {
+        id,
 
-            id:
-                btoa(text),
+        timestamp,
 
-            text
+        date: dateText,
 
-        };
+        raffle,
 
+        item: prize,
 
-    },
+        text:
+            `${dateText} Вы победили в розыгрыше "${raffle}": "${prize}"`
+
+    };
+
+},
 
 
 
     collect() {
 
+        return Array.from(
 
-        const blocks =
             document.querySelectorAll(
                 ".panel.panel-info .panel-raffle"
-            );
+            )
 
-
-
-        const wins = [];
-
-
-
-        blocks.forEach(block=>{
-
-
-            const win =
-                this.create(block);
-
-
-
-            if(win){
-
-                wins.push(win);
-
-            }
-
-
-        });
-
-
-
-        return wins;
-
+        )
+        .map(block => this.create(block))
+        .filter(Boolean);
 
     },
 
@@ -1809,105 +1760,103 @@ const AutoRafflerWins = {
 
     async check() {
 
-
         const current =
             this.collect();
 
+        if (!current.length) {
 
-
-        if(
-            !current.length
-        ){
+            AutoRafflerLog.info(
+                "🏆 Побед не найдено."
+            );
 
             return;
 
         }
 
-
-
         const data =
             await AutoRafflerStorage.get([
-
                 "winsHistory"
-
             ]);
-
-
 
         const history =
             data.winsHistory ?? [];
 
-
+        const historyIds =
+            new Set(
+                history.map(
+                    win => win.id
+                )
+            );
 
         const updated =
             [...history];
 
+        let newWins = 0;
 
+        for (const win of current) {
 
-        for(
-            const win of current
-        ){
-
-
-            if(
-                !history.some(
-                    old =>
-                        old.id === win.id
+            if (
+                historyIds.has(
+                    win.id
                 )
-            ){
+            ) {
 
-
-                AutoRafflerLog.info(
-                    "🏆 Новая победа!"
-                );
-
-
-
-                try{
-
-
-                    chrome.runtime.sendMessage({
-
-                        type:"notify",
-
-                        title:"🎉 Победа!",
-
-                        message:
-                            win.text
-
-                    });
-
-
-                }
-                catch(e){}
-
-
-
-                updated.push(win);
-
+                continue;
 
             }
 
+            historyIds.add(
+                win.id
+            );
+
+            updated.push(win);
+
+            newWins++;
+
+            AutoRafflerLog.info(
+                `🏆 Победа: ${win.item}`
+            );
+
+            try {
+
+                chrome.runtime.sendMessage({
+
+                    type: "notify",
+
+                    title: "🎉 Новая победа!",
+
+                    message: win.text
+
+                });
+
+            }
+            catch (e) {}
 
         }
 
-
-
         await AutoRafflerStorage.set({
 
-            wins:
-                current,
+            wins: current,
 
-
-            winsHistory:
-                updated
-
+            winsHistory: updated
 
         });
 
+        if (newWins) {
+
+            AutoRafflerLog.info(
+                `✅ Добавлено побед: ${newWins}`
+            );
+
+        } else {
+
+            AutoRafflerLog.info(
+                "📖 Новых побед нет."
+            );
+
+        }
 
     }
-
 
 };
 
@@ -1919,82 +1868,42 @@ const AutoRafflerWins = {
 
 const AutoRafflerWatchdog = {
 
+    timer: null,
 
-    started:
-        Date.now(),
+    start() {
 
+        if (this.timer) {
 
-
-    lastActivity:
-        Date.now(),
-
-
-
-    touch(reason="") {
-
-
-        this.lastActivity =
-            Date.now();
-
-
-
-        if(reason){
-
-            AutoRafflerLog.info(
-                `🔄 ${reason}`
-            );
+            return;
 
         }
-
-
-    },
-
-
-
-    start(){
-
 
         AutoRafflerLog.info(
             "👁 Watchdog активирован."
         );
 
-
-
-        setInterval(()=>{
-
+        this.timer = setInterval(() => {
 
             const idle =
-                Date.now()
-                -
-                this.lastActivity;
+                Date.now() -
+                AutoRafflerState.lastActivity;
 
-
-
-            if(
+            if (
                 idle >
                 AutoRafflerConfig.watchdogTimeout
-            ){
-
+            ) {
 
                 AutoRafflerLog.warn(
                     "Зависание обнаружено."
                 );
 
-
-
                 location.reload();
-
 
             }
 
-
-        },
-        5000);
-
-
+        }, 5000);
 
     }
-
 
 };
 
@@ -2006,118 +1915,54 @@ const AutoRafflerWatchdog = {
 
 const AutoRafflerOptimizer = {
 
-
-    async start(){
-
-
-        AutoRafflerLog.info(
-            "⚙ Финальная проверка."
-        );
-
-
-
-        await AutoRafflerWins.check();
-
-
-
-        AutoRafflerWatchdog.start();
-
-
-
-        console.log(
-            "%c========== ScrapTF AutoRaffler ==========",
-            "color:#0088ff;font-weight:bold"
-        );
-
-
-        console.table({
-
-            version:
-                AUTORAFFLER_VERSION,
-
-
-            page:
-                location.pathname,
-
-
-            queue:
-                AutoRafflerState.queue.length,
-
-
-            index:
-                AutoRafflerState.index,
-
-
-            running:
-                AutoRafflerState.running
-
-        });
-
-
-        console.log(
-            "%c==========================================",
-            "color:#0088ff;font-weight:bold"
-        );
-
-
-    }
-
+    start(){}
 
 };
 
-/*
-==================================================
- FINAL START ROUTER
-==================================================
-*/
+// --------------------------------------------------
+// FINAL ROUTER
+// --------------------------------------------------
 
-setTimeout(async ()=>{
+setTimeout(async () => {
 
-
-    if(
-        !window.AutoRafflerInitialized
-    ){
+    if (!AutoRafflerState.initialized) {
 
         AutoRafflerLog.warn(
-            "Ожидание инициализации..."
+            "Инициализация не завершена."
         );
 
         return;
 
     }
 
+    AutoRafflerWatchdog.start();
 
+    if (AutoRafflerPage.isRafflesList()) {
 
-    if(
-        AutoRafflerPage.isRafflesList()
-    ){
+        AutoRafflerLog.info(
+            "🏆 Проверка побед."
+        );
+
+        await AutoRafflerWins.check();
 
         AutoRafflerLog.info(
             "📋 Запуск сканера."
         );
 
-
         await AutoRafflerScanner.start();
 
+        return;
 
     }
 
-
-
-    if(
-        AutoRafflerPage.isRafflePage()
-    ){
+    if (AutoRafflerPage.isRafflePage()) {
 
         AutoRafflerLog.info(
             "🎫 Запуск входа в раздачу."
         );
 
-
         await AutoRafflerExecutor.start();
-
 
     }
 
-
-
-},1500);
+}, 1500);
