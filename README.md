@@ -22,14 +22,14 @@ EN:
 
 # 📦 Установка / Installation
 RU:
-- Скачать последнюю версию [ScrapTF Auto Raffler RU](https://github.com/Dalarcsis/ScrapTF-Auto-Raffler/releases/download/v3.0.0ru/scraptf-auto-raffler-v3.0.0.RU.zip).
+- Скачать последнюю версию [ScrapTF Auto Raffler RU](https://github.com/Dalarcsis/ScrapTF-Auto-Raffler/releases/download/v3.0.1ru/scraptf-auto-raffler-v3.0.1.RU.zip).
 - Распаковать архив.
 - Зайти в Google Chrome, "Расширения", "Управление расширениями". В правом верхнем углу нажать кнопку "Режим разработчика". Слева сверху нажать "Загрузить распакованное расширение" и указать путь к папке с расширением.
 - После установки расширения нажать на иконку расширения. Чтобы включить его, нажмите кнопку ВКЛ.</br>
 ВНИМАНИЕ: удалять папку с расширением нельзя! Google Chrome не копирует её в свою директорию, из-за чего в случае удаления выдаст ошибку об отсутствии нужных файлов для запуска. Совет — переместите её в удобное для вас место.
 
 EN:
-- Download the latest version [ScrapTF Auto Raffler EN](https://github.com/Dalarcsis/ScrapTF-Auto-Raffler/releases/download/v3.0.0en/scraptf-auto-raffler-v3.0.0.EN.zip).
+- Download the latest version [ScrapTF Auto Raffler EN](https://github.com/Dalarcsis/ScrapTF-Auto-Raffler/releases/download/v3.0.1en/scraptf-auto-raffler-v3.0.1.EN.zip).
 - Unzip the archive.
 - Go to Google Chrome, "Extensions", "Manage extensions". In the upper right corner, click the "Developer mode" button. In the upper left, click "Load unpacked extension" and specify the path to the folder with the extension.
 - After installing the extension, click on the extension icon. To enable it, click the ON button.</br>
